@@ -2,13 +2,18 @@ package ma.elkarroudi.utils.service;
 
 import ma.elkarroudi.utils.exceptions.ResourceNotFoundException;
 import ma.elkarroudi.utils.service.helper.IGenericServiceHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.function.Function;
 
 public interface IGenericService<T, ID, REQ, RES> extends IGenericServiceHelper<T, ID, REQ, RES> {
+
+    Logger logger = LoggerFactory.getLogger(IGenericService.class);
 
     /**
      * Retrieves all entities of type T, paginated.
@@ -60,7 +65,10 @@ public interface IGenericService<T, ID, REQ, RES> extends IGenericServiceHelper<
      * @param requestDTO the DTO containing the data for the new entity
      * @return the created entity
      */
+    @Transactional
     default T create(REQ requestDTO) {
+        logger.info("Creating entity with data: {}", requestDTO);
+
         T entity = getMapper().toEntity(requestDTO);
         return getRepository().save(entity);
     }
@@ -73,7 +81,10 @@ public interface IGenericService<T, ID, REQ, RES> extends IGenericServiceHelper<
      * @return the updated entity
      * @throws ResourceNotFoundException if the entity is not found
      */
+    @Transactional
     default T update(ID id, REQ dto) {
+        logger.info("Updating entity with id: {} and data: {}", id, dto);
+
         return findAndExecute(id, entity -> {
             getMapper().updateEntity(entity, dto);
             return getRepository().save(entity);
@@ -86,7 +97,10 @@ public interface IGenericService<T, ID, REQ, RES> extends IGenericServiceHelper<
      * @param id the ID of the entity to delete
      * @throws ResourceNotFoundException if the entity is not found
      */
+    @Transactional
     default void delete(ID id) {
+        logger.info("Deleting entity with id: {}", id);
+
         findAndExecute(id, entity -> {
             getRepository().delete(entity);
             return null;
@@ -124,6 +138,26 @@ public interface IGenericService<T, ID, REQ, RES> extends IGenericServiceHelper<
     default <R> R findAndExecute(ID id, Function<T, R> function) {
         T entity = findById(id);
         return function.apply(entity);
+    }
+
+    /**
+     * Retrieves entities by a list of IDs.
+     *
+     * @param ids the list of IDs
+     * @return a list of entities
+     */
+    default List<T> findAllByIds(List<ID> ids) {
+        return getRepository().findAllById(ids);
+    }
+
+    /**
+     * Deletes entities by a list of IDs.
+     *
+     * @param ids the list of IDs
+     */
+    @Transactional
+    default void deleteAllByIds(List<ID> ids) {
+        ids.forEach(this::delete);
     }
 
 }
